@@ -20,6 +20,8 @@ public class ServerActor extends AbstractActor {
     private Map<Integer, ActorRef> clientsWaitingForSearchResponse = new HashMap<>();
     private Map<Integer, ActorRef> clientsWaitingForOrderResponse = new HashMap<>();
     private Map<Integer, Set<ActorRef>> searchingActorsServingRequest = new HashMap<>();
+    private Map<Integer, Boolean> resultWasZeroBefore = new HashMap<>();
+    private Map<Integer, Boolean> secondMessage = new HashMap<>();
 
     private int searchRequestId = 0;
     private int orderRequestId = 0;
@@ -52,31 +54,40 @@ public class ServerActor extends AbstractActor {
                     actorRefs.add(actorRef);
                     actorRefs.add(actorRef1);
                     searchingActorsServingRequest.put(searchRequestId, actorRefs);
+                    resultWasZeroBefore.put(searchRequestId, Boolean.FALSE);
+                    secondMessage.put(searchRequestId, Boolean.FALSE);
                 })
                 .match(SearchingResponseServantServer.class, searchingResponse -> {
                     int idOfRequestSender = searchingResponse.getIdOfRequestSender();
-                    ActorRef actorRef = clientsWaitingForSearchResponse.get(idOfRequestSender);
 
-                    log.info("Server: Received searching result from servant actor");
-                    actorRef.tell(searchingResponse.getAnswer(), getSelf());
-                    clientsWaitingForSearchResponse.remove(idOfRequestSender);
+                    if (searchingResponse.getAnswer() == 0.0f && resultWasZeroBefore.get(idOfRequestSender).equals(Boolean.FALSE)) {
+                        resultWasZeroBefore.put(searchingResponse.getIdOfRequestSender(), Boolean.TRUE);
+                        System.out.println("dupa");
+                    } else {
+                        if(!secondMessage.get(idOfRequestSender)) {
 
-                    Set<ActorRef> removed = searchingActorsServingRequest.remove(searchingResponse.getIdOfRequestSender());
+                            ActorRef actorRef = clientsWaitingForSearchResponse.remove(idOfRequestSender);
+                            log.info("Server: Received searching result from servant actor");
+                            actorRef.tell(searchingResponse.getAnswer(), getSelf());
+                            Set<ActorRef> removed = searchingActorsServingRequest.remove(idOfRequestSender);
+                            removed.forEach(e -> context().stop(e));
+                            secondMessage.put(idOfRequestSender, Boolean.TRUE);
+                        }
 
-                    removed.forEach(e -> context().stop(e));
+                    }
 
                 })
-                .match(OrderRequestClientServer.class, o ->{
+                .match(OrderRequestClientServer.class, o -> {
                     // todo search if in store
                     ActorRef actorRef1 = context().child("orderDatabaseManagingActor").get();
                     actorRef1.tell(new OrderRequestServerServant(o.getTitle(), ++orderRequestId), getSelf());
                     clientsWaitingForOrderResponse.put(orderRequestId, getSender());
                 })
-                .match(OrderResponseServantServer.class, o ->{
+                .match(OrderResponseServantServer.class, o -> {
                     ActorRef actorRef = clientsWaitingForOrderResponse.remove(o.getRequesterId());
                     actorRef.tell(SimpleResponse.OK, getSelf());
                 })
-                .matchAny(o ->  {
+                .matchAny(o -> {
                     log.info("received unknown message" + o.getClass());
                 })
                 .build();
