@@ -1,20 +1,21 @@
 package Server.Servants;
 
 import MessageSrtuctures.OrderRequestServerServant;
-import MessageSrtuctures.OrderResponseServantServer;
 import MessageSrtuctures.SimpleResponse;
 import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 public class OrderActor extends AbstractActor {
 
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
-    private BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter("orders.txt"));
+    // todo czemu tu kurde nie zapisuje do pliku
+//    private BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter("orders.txt"));
+    private PrintWriter writer;
 
     public OrderActor() throws IOException {
     }
@@ -23,8 +24,14 @@ public class OrderActor extends AbstractActor {
     public Receive createReceive() {
         return receiveBuilder()
                 .match(OrderRequestServerServant.class, o -> {
-                    bufferedWriter.write(o.getBook() + "\n");
-//                    getSender().tell(new OrderResponseServantServer(SimpleResponse.OK,o.getOrderRequestId()), getSelf());
+                    ActorRef actorRef = getSender();
+
+                        writer = new PrintWriter("orders.txt", "UTF-8");
+                        System.out.println("Replying");
+                        writer.println(o.getBook() + "\n");
+                        actorRef.tell(SimpleResponse.OK, getSelf());
+                        writer.close();
+
                 })
                 .matchAny(o -> log.info("received unknown message"))
                 .build();

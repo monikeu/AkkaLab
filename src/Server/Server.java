@@ -21,6 +21,8 @@ public class Server {
         final ActorSystem system = ActorSystem.create("remote_system", config);
         final ActorRef remote = system.actorOf(Props.create(ServerActor.class), "remote");
 
+        remote.tell(system, null);
+
         // interaction
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
         while (true) {
