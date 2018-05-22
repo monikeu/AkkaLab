@@ -100,7 +100,7 @@ public class ServerActor extends AbstractActor {
                     System.out.println("Received streaming request for book " + o.getTitle());
                     context().actorOf(Props.create(StreamingActor.class), "streamingActor" + (++streamingActorsCount));
                     ActorRef actorRef = context().child("streamingActor" + streamingActorsCount).get();
-                    actorRef.tell(o, getSender());
+                    actorRef.tell(new StreamingRequestServerServant(o, materializer), getSender());
 
                 })
                 .matchAny(o -> {
